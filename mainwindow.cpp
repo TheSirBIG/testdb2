@@ -268,8 +268,8 @@ void MainWindow::on_pushButton_6_released()
 //    delete qq1;
 //    delete qq2;
 
-    qqq1 = new DBConnectClass<DBWriteCSVThread>(1,4);
-    qqq2 = new dbqwe(2,4);
+    qqq1 = new DBConnectClass<DBWriteCSVThread>("DBConnectClass",1,4);
+    qqq2 = new dbqwe("dbqwe",2,4);
 }
 
 void MainWindow::on_pushButton_7_released()
