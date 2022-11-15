@@ -24,6 +24,7 @@ const int numOfIteration = 10000;
 //DBConnectClass* qqq;
 DBConnectClass<DBWriteCSVThread>* qqq1;
 dbqwe* qqq2;
+logClass* lc;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)//,qqq1(1,4),qqq2(2,4)
@@ -34,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->checkBoxOk->setCheckState(Qt::Unchecked);
     ui->textEdit->clear();
 
+    lc = new logClass("lc");
 }
 
 MainWindow::~MainWindow()
@@ -41,6 +43,8 @@ MainWindow::~MainWindow()
     closeDB();
     delete qqq1;
     delete qqq2;
+
+    delete lc;
     delete ui;
 }
 
@@ -48,6 +52,12 @@ void MainWindow::closeDB()
 {
     db.close();
     db.removeDatabase(connname);
+}
+
+void MainWindow::sigFrom(int instanceID, int thrID, int errCode)
+{
+    std::cout << "signal from process: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
+              << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
 }
 
 void MainWindow::createDB()
@@ -270,6 +280,11 @@ void MainWindow::on_pushButton_6_released()
 
     qqq1 = new DBConnectClass<DBWriteCSVThread>("DBConnectClass",1,4);
     qqq2 = new dbqwe("dbqwe",2,4);
+
+    QObject::connect(qqq1, &dbq::sig,
+            this, &MainWindow::sigFrom);
+    QObject::connect(qqq2, &dbq::sig,
+            this, &MainWindow::sigFrom);
 }
 
 void MainWindow::on_pushButton_7_released()

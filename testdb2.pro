@@ -10,14 +10,12 @@ CONFIG += c++11
 
 SOURCES += \
     dbwritecsvthread.cpp \
-    loggerclass.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
     dbconnectclass.h \
     dbwritecsvthread.h \
-    loggerclass.h \
     mainwindow.h
 
 FORMS += \

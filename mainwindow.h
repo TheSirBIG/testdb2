@@ -3,7 +3,6 @@
 
 #include <QMainWindow>
 #include <QtSql>
-//#include "dbconnectclass.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -26,6 +25,8 @@ public:
     bool connectToServer();
     void createDB();
     void closeDB();
+
+    void sigFrom(int instanceID, int thrID, int errCode);
 
 //    DBConnectClass<DBWriteCSVThread> qqq1;
 //    dbqwe qqq2;

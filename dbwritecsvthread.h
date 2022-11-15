@@ -34,5 +34,11 @@ class qwe : public DBWriteCSVThread
     void endWork() override;
 };
 
+class logThread : public DBWriteCSVThread
+{
+    void doWork() override;
+    void endWork() override;
+};
+
 #endif // DBWRITECSVTHREAD_H
 

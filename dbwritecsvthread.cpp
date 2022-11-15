@@ -45,3 +45,12 @@ void qwe::endWork()
 {
     std::cout << "qwe finish state " << QString::number(threadID).toStdString() << std::endl;
 }
+
+void logThread::doWork()
+{
+}
+
+void logThread::endWork()
+{
+    std::cout << "lotThread finish state " << QString::number(threadID).toStdString() << std::endl;
+}

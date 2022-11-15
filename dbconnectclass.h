@@ -1,3 +1,20 @@
+// общая структура боевой программы
+//
+// в области main - tango-клиент, dim-сервер, класс <a>(один или несколько) на базе DBConnectClass, класс <l>(один или несколько) логов (тоже на DBConnectClass)
+// работа
+// новые данные от tango: передача по dim, запись в <a>
+// при возникновении любой ошибки: передача по dim(???), запись в <l>
+// если ошибка в <l>: передача по dim(???)
+// вообще, практически любой чих: запись в <l>
+//
+//
+//
+//
+//
+
+
+
+
 #ifndef DBCONNECTCLASS_H
 #define DBCONNECTCLASS_H
 
@@ -12,20 +29,23 @@
 // также работает полиморфизм(???) для eh
 // так что в наследовании вместо dbq поставил QObject (без него таки ругается)
 
-/*
+//update
+//ввел наследование от dbq, чтобы посылать сигнал основному обработчику (MainWindow)
+
 class dbq : public QObject
 //только для возможности иметь слоты
 //вроде - оба способа работают, с virtual и без
 {
     Q_OBJECT
-public slots:
+//public slots:
 //    virtual void eh(int thrID, int errCode)
-    void eh(int thrID, int errCode)
-    {
-        thrID = errCode; //просто, чтобы не было предупреждений при компиляции
-    };
+//    {
+//        thrID = errCode; //просто, чтобы не было предупреждений при компиляции
+//    };
+signals:
+    void sig(int instanceID, int thrID, int errCode);
 };
-*/
+
 
 
 //работает - глобальный динамический
@@ -36,7 +56,7 @@ public slots:
 //для каждого типа таблицы - свой класс
 //пример - dbqwe
 //template<class T>class DBConnectClass : public dbq
-template<class T>class DBConnectClass : public QObject
+template<class T>class DBConnectClass : public dbq
 {
     int numOfThreads;
     int csvThreadArrayCounter;
@@ -54,7 +74,7 @@ public:
 //без virtual вызовется метод из DBConnectClass
     virtual void eh(int thrID, int errCode);
 
-    void startCurrent();
+    void startWrite();
 
     T* csvThreadArray;
     int instanceID;
@@ -65,6 +85,7 @@ void DBConnectClass<T>::eh(int thrID, int errCode)
 {
     std::cout << "dbconnect we slot: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
               << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
+    emit sig(instanceID,thrID,errCode);
 };
 
 template<class T>
@@ -136,7 +157,7 @@ DBConnectClass<T>::~DBConnectClass()
 }
 
 template<class T>
-void DBConnectClass<T>::startCurrent()
+void DBConnectClass<T>::startWrite()
 {
     csvThreadArray[csvThreadArrayCounter].startWork = true;
     csvThreadArrayCounter++;
@@ -152,17 +173,34 @@ public:
         //без этого, даже пустого, определения ругается линковщик
         //свой код, если надо
     };
-    ~dbqwe()
+//    ~dbqwe()
+//    {
+        //без этого, даже пустого, определения ругается линковщик
+        //свой код, если надо
+//    };
+    void eh(int thrID, int errCode) override
+    {
+        std::cout << "dbqwe we slot: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
+                  << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
+        emit sig(instanceID,thrID,errCode);
+    };
+};
+
+class logClass : public DBConnectClass<logThread>
+{
+
+public:
+    logClass(QString iniSectionName):DBConnectClass(iniSectionName, 100)
     {
         //без этого, даже пустого, определения ругается линковщик
         //свой код, если надо
     };
-    void eh(int thrID, int errCode)// override
+    void eh(int thrID, int errCode) override
     {
-        std::cout << "dbqwe we slot: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
-                  << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
-    };
+        //do some work
+        emit sig(instanceID,thrID,errCode);
+    }
+//    QDateTime
 };
-
 
 #endif // DBCONNECTCLASS_H
