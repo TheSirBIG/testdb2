@@ -28,9 +28,31 @@
 // в этом случае нужен только сигнал, вместо слота можно подключить любую функцию!!!
 // также работает полиморфизм(???) для eh
 // так что в наследовании вместо dbq поставил QObject (без него таки ругается)
+// update
+// ввел наследование от dbq, чтобы посылать сигнал основному обработчику (MainWindow)
 
-//update
-//ввел наследование от dbq, чтобы посылать сигнал основному обработчику (MainWindow)
+// класс dqb
+// signal sig   пересылка сигнала основному обработчику от "слота" eh (в классе dbq отсутствует)
+//              передает id класса, id потока, код ошибки и ,если надо, расширенную информацию в виде указателя на qstring
+//
+//
+// класс DBConnectClass
+// numOfThreads             количество созданных потоков
+// csvThreadArrayCounter    счетчик для циклического запуска потоков
+// iniFile                  для чтения ini-файла, файл должен находиться на одном уровне с exe (при запуске из-под qt - на уровень выше(windows))
+// db...                    для доступа к базе данных
+// dbConnName               имя соединения с бд, копирует iniSectionName
+//
+// конструктор:
+// iniSectionName           название секции в ini-файле. Также это уникальное имя для объекта бд
+// instID                   id класса, возможно будет полезен при отладке
+// numthreads               сколько потоков запустить, по умолчанию - 5
+//
+// eh                       "слот" для связи с сигналом от потока. virtual - обязателен, иначе при connect будет привязываться eh от базового класса
+// startWrite               запуск следующего потока. данные должны быть уже загружены в поток
+//                          чтобы всегда были свободные потоки - надо прикидывать время, и запускать нужное число потоков в конструкторе
+//
+
 
 class dbq : public QObject
 //только для возможности иметь слоты
@@ -43,10 +65,8 @@ class dbq : public QObject
 //        thrID = errCode; //просто, чтобы не было предупреждений при компиляции
 //    };
 signals:
-    void sig(int instanceID, int thrID, int errCode);
+    void sig(int instanceID, int thrID, int errCode, QString* outStrPtr = nullptr);
 };
-
-
 
 //работает - глобальный динамический
 //           член класса mainwindow динамический
@@ -55,24 +75,25 @@ signals:
 
 //для каждого типа таблицы - свой класс
 //пример - dbqwe
-//template<class T>class DBConnectClass : public dbq
 template<class T>class DBConnectClass : public dbq
 {
     int numOfThreads;
     int csvThreadArrayCounter;
-    QSqlDatabase db;
     QSettings* iniFile;
+
     QString dbUser;
     QString dbPassword;
     QString dbAddress;
+    QString dbConnName;
 
 public:
+// iniSectionName - также будет connectionname для adddatabase
     DBConnectClass(QString iniSectionName, int instID, int numthreads = 5);
     virtual ~DBConnectClass();
 
 //нужна именно virtual, чтобы переопределять в производных классах
 //без virtual вызовется метод из DBConnectClass
-    virtual void eh(int thrID, int errCode);
+    virtual void eh(int thrID, int errCode, QString* outStrPtr = nullptr);
 
     void startWrite();
 
@@ -81,11 +102,15 @@ public:
 };
 
 template<class T>
-void DBConnectClass<T>::eh(int thrID, int errCode)
+void DBConnectClass<T>::eh(int thrID, int errCode, QString* outStrPtr)
 {
     std::cout << "dbconnect we slot: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
               << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
-    emit sig(instanceID,thrID,errCode);
+    if(outStrPtr == nullptr)
+        std::cout << "null pointer" << std::endl;
+    else
+        std::cout << outStrPtr->toStdString() << std::endl;
+    emit sig(instanceID,thrID,errCode,outStrPtr);
 };
 
 template<class T>
@@ -95,6 +120,7 @@ DBConnectClass<T>::DBConnectClass(QString iniSectionName, int instID, int numthr
     csvThreadArray = new T[numOfThreads];
     csvThreadArrayCounter = 0;
     instanceID = instID;
+    dbConnName = iniSectionName;
 
     //prepare and start threads
     for(int i=0; i<numOfThreads; i++)
@@ -178,11 +204,15 @@ public:
         //без этого, даже пустого, определения ругается линковщик
         //свой код, если надо
 //    };
-    void eh(int thrID, int errCode) override
+    void eh(int thrID, int errCode, QString* outStrPtr = nullptr) override
     {
         std::cout << "dbqwe we slot: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
                   << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
-        emit sig(instanceID,thrID,errCode);
+        if(outStrPtr == nullptr)
+            std::cout << "null pointer" << std::endl;
+        else
+            std::cout << outStrPtr->toStdString() << std::endl;
+        emit sig(instanceID,thrID,errCode,outStrPtr);
     };
 };
 
@@ -195,10 +225,14 @@ public:
         //без этого, даже пустого, определения ругается линковщик
         //свой код, если надо
     };
-    void eh(int thrID, int errCode) override
+    void eh(int thrID, int errCode, QString* outStrPtr = nullptr) override
     {
+        if(outStrPtr == nullptr)
+            std::cout << "null pointer" << std::endl;
+        else
+            std::cout << outStrPtr->toStdString() << std::endl;
         //do some work
-        emit sig(instanceID,thrID,errCode);
+        emit sig(instanceID,thrID,errCode,outStrPtr);
     }
 //    QDateTime
 };

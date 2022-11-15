@@ -50,19 +50,26 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeDB()
 {
-    db.close();
-    db.removeDatabase(connname);
+//    QSqlDatabase::database(connname).close();
+//    db.close();
+    QSqlDatabase::removeDatabase(connname);
 }
 
-void MainWindow::sigFrom(int instanceID, int thrID, int errCode)
+void MainWindow::sigFrom(int instanceID, int thrID, int errCode,  QString* outStrPtr)
 {
     std::cout << "signal from process: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
               << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
+    if(outStrPtr == nullptr)
+        std::cout << "null pointer at main" << std::endl;
+    else
+        std::cout << outStrPtr->toStdString() << std::endl;
 }
 
 void MainWindow::createDB()
 {
     bool res;
+
+    QSqlDatabase db = QSqlDatabase::database(connname);
 
     ui->textEdit->insertPlainText("connect to database\n");
     res = connectToServer();
@@ -136,6 +143,7 @@ void MainWindow::createDB()
 
 bool MainWindow::connectToServer()
 {
+    QSqlDatabase db;
     db = QSqlDatabase::addDatabase("QMYSQL",connname);
 
     db.setHostName(hostname);
@@ -149,6 +157,8 @@ bool MainWindow::connectToServer()
 void MainWindow::on_connButton_released()
 {
 //    const QSqlResult *res;
+
+    QSqlDatabase db;
 
     db = QSqlDatabase::addDatabase("QMYSQL","conn_name1");
 
@@ -166,9 +176,10 @@ void MainWindow::on_connButton_released()
 
 void MainWindow::on_pushButton_released()
 {
-//    QSqlDatabase::removeDatabase("conn_name1");
-    db.close();
-    db.removeDatabase("conn_name1");
+//    db.close();
+//    db.removeDatabase("conn_name1");
+//    db.removeDatabase(qs);
+    QSqlDatabase::removeDatabase("conn_name1");
 }
 
 void MainWindow::on_pushButton_2_released()
@@ -176,6 +187,7 @@ void MainWindow::on_pushButton_2_released()
     QString sss;
 
     //    QSqlQuery query;
+    QSqlDatabase db = QSqlDatabase::database(connname);
         QSqlQuery query(db);
 
         query.exec("select * from test_table1");
@@ -217,7 +229,7 @@ void MainWindow::on_pushButton_5_released()
     int elapsed;
     QString ss1;
     std::string ss2;
-    QSqlQuery query(db);
+    QSqlQuery query(QSqlDatabase::database(connname));
 
 /*
     time.start();

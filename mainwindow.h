@@ -20,13 +20,13 @@ public:
 //    const QString hostname = "localhost";
     const QString connname = "testconn1";
 
-    QSqlDatabase db;
+//    QSqlDatabase db;
 
     bool connectToServer();
     void createDB();
     void closeDB();
 
-    void sigFrom(int instanceID, int thrID, int errCode);
+    void sigFrom(int instanceID, int thrID, int errCode, QString* outStrPtr = nullptr);
 
 //    DBConnectClass<DBWriteCSVThread> qqq1;
 //    dbqwe qqq2;

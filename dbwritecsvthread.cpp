@@ -8,8 +8,9 @@ void DBWriteCSVThread::run()
         {
             startWork = false;
             doWork();
-//            emit workEnd(threadID, errorCode);
+            outStr = "string data = " + QString::number(threadID) + "," + QString::number(DBWriteCSVThread::END_OF_WORK);
             emit workEnd(threadID, DBWriteCSVThread::END_OF_WORK);
+//            emit workEnd(threadID, DBWriteCSVThread::END_OF_WORK, &outStr);
         }
         else if(mustFinish)
         {
