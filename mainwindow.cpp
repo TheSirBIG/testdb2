@@ -5,7 +5,7 @@
 #include <iostream>
 #include <Windows.h>
 
-#include "dbconnectclass.h"
+#include "dbwriteclass.h"
 
 //  !!!!!!!!!!!!!!!!!! query.exec("set global local_infile=1");     !!!!!!!!!!!!!!!!!!!!!!!!!
 //  !!!!!!!!!!!!!!!!!! на всякий случай вставлять после открытия db !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -21,8 +21,8 @@
 
 const int numOfCollumn = 100;
 const int numOfIteration = 10000;
-//DBConnectClass* qqq;
-DBConnectClass<DBWriteCSVThread>* qqq1;
+//DBWriteClass* qqq;
+DBWriteClass<DBWriteCSVThread>* qqq1;
 dbqwe* qqq2;
 logClass* lc;
 
@@ -281,22 +281,28 @@ time.start();
 
 void MainWindow::on_pushButton_6_released()
 {
-//    DBConnectClass* qq1;
-//    DBConnectClass* qq2;
-//    qq1 = new DBConnectClass();
-//    qq2 = new DBConnectClass(10);
+//    DBWriteClass* qq1;
+//    DBWriteClass* qq2;
+//    qq1 = new DBWriteClass();
+//    qq2 = new DBWriteClass(10);
 //    std::cout << qq1->numOfThreads << std::endl;
 //    std::cout << qq2->numOfThreads << std::endl;
 //    delete qq1;
 //    delete qq2;
 
-    qqq1 = new DBConnectClass<DBWriteCSVThread>("DBConnectClass",1,4);
+    qqq1 = new DBWriteClass<DBWriteCSVThread>("DBWriteClass",1,4);
     qqq2 = new dbqwe("dbqwe",2,4);
 
     QObject::connect(qqq1, &dbq::sig,
             this, &MainWindow::sigFrom);
     QObject::connect(qqq2, &dbq::sig,
             this, &MainWindow::sigFrom);
+
+    QSqlError::ErrorType etype;
+    QString etext;
+    qqq2->setTableName("testdb_1");
+    qqq2->dbConnect(etype,etext);
+std::cout << etype << "," << etext.toStdString() << std::endl;
 }
 
 void MainWindow::on_pushButton_7_released()

@@ -28,7 +28,7 @@ public:
 
     void sigFrom(int instanceID, int thrID, int errCode, QString* outStrPtr = nullptr);
 
-//    DBConnectClass<DBWriteCSVThread> qqq1;
+//    DBWriteClass<DBWriteCSVThread> qqq1;
 //    dbqwe qqq2;
 
 public:

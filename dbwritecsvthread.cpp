@@ -19,15 +19,31 @@ void DBWriteCSVThread::run()
         }
         else
         {
-            this->msleep(100);
+            if(lostCSV)
+            {
+                this->msleep(sleepLostTime);
+                startWork = true;
+            } else
+            {
+                this->msleep(sleepTime);
+            };
         }
     }
 }
 
+
 void DBWriteCSVThread::doWork()
 {
-    std::cout << "DBWriteCSVThread into thread " << QString::number(threadID).toStdString() << std::endl;
-    sleep(4);
+    if(lostCSV)
+    {
+        std::cout << "DBWriteCSVThread into 'lost' thread " << QString::number(threadID).toStdString() << std::endl;
+        sleep(2);
+    }
+    else
+    {
+        std::cout << "DBWriteCSVThread into thread " << QString::number(threadID).toStdString() << std::endl;
+        sleep(4);
+    }
 }
 
 void DBWriteCSVThread::endWork()
@@ -38,8 +54,16 @@ void DBWriteCSVThread::endWork()
 
 void qwe::doWork()
 {
-    std::cout << "qwe into thread " << QString::number(threadID).toStdString() << std::endl;
-    sleep(4);
+    if(lostCSV)
+    {
+        std::cout << "qwe into 'lost' thread " << QString::number(threadID).toStdString() << std::endl;
+        sleep(2);
+    }
+    else
+    {
+        std::cout << "qwe into thread " << QString::number(threadID).toStdString() << std::endl;
+        sleep(4);
+    }
 }
 
 void qwe::endWork()
@@ -49,9 +73,17 @@ void qwe::endWork()
 
 void logThread::doWork()
 {
+    if(lostCSV)
+    {
+
+    }
+    else
+    {
+
+    }
 }
 
 void logThread::endWork()
 {
-    std::cout << "lotThread finish state " << QString::number(threadID).toStdString() << std::endl;
+    std::cout << "logThread finish state " << QString::number(threadID).toStdString() << std::endl;
 }

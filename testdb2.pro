@@ -14,7 +14,7 @@ SOURCES += \
     mainwindow.cpp
 
 HEADERS += \
-    dbconnectclass.h \
+    dbwriteclass.h \
     dbwritecsvthread.h \
     mainwindow.h
 
