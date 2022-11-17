@@ -27,15 +27,15 @@
 // ввел наследование от dbq, чтобы посылать сигнал основному обработчику (MainWindow)
 
 // класс dqb
-// signal sig   пересылка сигнала основному обработчику от "слота" eh (в классе dbq отсутствует)
+// signal sig   пересылка сигнала основному обработчику
 //              передает id класса, id потока, код ошибки и ,если надо, расширенную информацию в виде указателя на qstring
 //
 //
 // класс DBWriteClass
-// numOfThreads             количество созданных потоков
-// csvThreadArrayCounter    счетчик для циклического запуска потоков - пока закоментировал
+// instanceID               id класса, возможно будет полезен при отладке
+// dbNumOfThreads           количество созданных потоков
+//      update: перенес из конструктора в ini-файл
 // csvThreadArray           массив потоков
-// csvThreadReady           bool - поток свободен
 // iniFile                  для чтения ini-файла, файл должен находиться на одном уровне с exe (при запуске из-под qt - на уровень выше(windows))
 // db...                    для доступа к базе данных
 // dbConnName               имя соединения с бд, копирует iniSectionName
@@ -45,134 +45,84 @@
 // конструктор:
 // iniSectionName           название секции в ini-файле. Также это уникальное имя для объекта бд
 // instID                   id класса, возможно будет полезен при отладке
-// numthreads               сколько потоков запустить, по умолчанию - 5
 //
-// eh                       "слот" для связи с сигналом от потока. virtual - обязателен, иначе при connect будет привязываться eh от базового класса
-// startWrite               запуск следующего потока. данные должны быть уже загружены в поток
-//                          чтобы всегда были свободные потоки - надо прикидывать время, и запускать нужное число потоков в конструкторе
-//                          возвращает false, если нет свободных потоков
-// retryWrite               запуск конкретного потока
+// setTableName             установка имени таблицы из dbTableName в потоки, вызывается из createTable
+// threadSlot               "слот" для связи с сигналом от потока.
+//                          используется virtual _threadSlot для дочерних классов (если не потребуется - то удалю)
+//                          по факту - просто перебрасывает данные +instanceID основной программе
+// getFreeThread            индекс первого свободного потока, или -1
+//
+// createTable              создать таблицу, передать имя в потоки
+//                          используется virtual _createTable для дочерних классов
+//                          должно уже быть соединение с бд
 // dbConnect                соединение с бд, возвращает код и текст ошибки
-// setTableName             задать имя таблицы для записи
 //
 //
 // после конструктора класса из основной программы надо:
-// задать имя таблицы, через setTableName
-// вызвать dbConnect, если ошибка - повторять, пока не надоест ))) (все коды и тексты у главной программы есть)
-// в процессе работы при ошибке дисконнекта (сигнал от потоков) - опять dbConnect
-// в общем - потестю, распишу получше, если что...
+// вызвать dbConnect, если ошибка - повторять, пока не надоест(???) ))) (все коды и тексты у главной программы есть)
+// задать имя таблицы, через createTable
+// в процессе работы при ошибке дисконнекта (сигнал от потоков) - опять dbConnect - ???
 //
-// при необходимости менять имя таблицы через setTabelName
+// при необходимости менять имя таблицы через createTable
 //  причины - а шут его знает, но все в одну сваливать не очень хорошо, думаю... или по размеру файла, или как-то по датам...
 //
 
 
 class dbq : public QObject
-//только для возможности иметь слоты
-//вроде - оба способа работают, с virtual и без
+//только для возможности иметь слоты в классе с шаблоном
 {
     Q_OBJECT
-//public slots:
-//    virtual void eh(int thrID, int errCode)
-//    {
-//        thrID = errCode; //просто, чтобы не было предупреждений при компиляции
-//    };
 signals:
     void sig(int instanceID, int thrID, int errCode, QString* outStrPtr = nullptr);
 };
 
-// варианты объявления DBWriteClass:
-// работает глобальный динамический
-//          член класса mainwindow динамический
-//          член класса mainwindow статический
-// не работает - глобальный статический (похоже - нужен родитель обязательно)
-
-//для каждого типа таблицы - свой класс
-//пример - dbqwe
+// варианты объявления классов на базе DBWriteClass:
+// работает:    глобальный динамический
+//              член класса mainwindow динамический
+//              член класса mainwindow статический
+// не работает: глобальный статический (похоже - нужен родитель обязательно)
 template<class T>class DBWriteClass : public dbq
 {
-    int numOfThreads;
-//    int csvThreadArrayCounter;
-    bool* csvThreadReady;
-
     QSettings* iniFile;
 
+    int dbNumOfThreads;
     QString dbUser;
     QString dbPassword;
     QString dbAddress;
-    QString dbConnName;
     QString dbDatabaseName;
+    QString dbTableName = "testdb2";
 
-public:
+    void setTableName();
+    void threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr);
+    int getFreeThread();
+
+protected:
     int instanceID;
+    QString dbConnName;
+    //нужна именно virtual, чтобы переопределять в производных классах
+    //без virtual вызовется метод из DBWriteClass
+    virtual bool _createTable(QString tname, QSqlError* sqlError) = 0;
+    virtual void _threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr) = 0;
+public:
     T* csvThreadArray;
-    QString dbTableName = "default";
 
 public:
 // iniSectionName - также будет connectionname для adddatabase
-    DBWriteClass(QString iniSectionName, int instID, int numthreads = 5);
+    DBWriteClass(QString iniSectionName, int instID);
     virtual ~DBWriteClass();
 
-//нужна именно virtual, чтобы переопределять в производных классах
-//без virtual вызовется метод из DBWriteClass
-    virtual void eh(int thrID, int errCode, QString* outStrPtr = nullptr);
-
-    bool startWrite();
-    void retryWrite(int idx);
-    bool dbConnect(QSqlError::ErrorType &errType,QString &errText);
-    bool execQuery(QSqlQuery &query);
-    void setTableName(QString tname);
+//    void retryWrite(int idx);
+    bool dbConnect(QSqlError::ErrorType* errType,QString* errText);
+    bool createTable(QString tname, QSqlError* sqlError);
 };
 
 template<class T>
-void DBWriteClass<T>::eh(int thrID, int errCode, QString* outStrPtr)
+DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
 {
-    csvThreadReady[thrID] = true;
-
-    std::cout << "dbwrite we slot: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
-              << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
-    if(outStrPtr == nullptr)
-        std::cout << "null pointer" << std::endl;
-    else
-        std::cout << outStrPtr->toStdString() << std::endl;
-    emit sig(instanceID,thrID,errCode,outStrPtr);
-};
-
-template<class T>
-DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID, int numthreads)
-{
-    numOfThreads = numthreads;
-    csvThreadArray = new T[numOfThreads];
-//    csvThreadArrayCounter = 0;
-    instanceID = instID;
-    dbConnName = iniSectionName;
-    csvThreadReady = new bool[numOfThreads];
-
-    //prepare and start threads
-    for(int i=0; i<numOfThreads; i++)
-    {
-        csvThreadArray[i].dbConn = dbConnName;
-        csvThreadReady[i] = true;
-        QObject::connect(&csvThreadArray[i], &T::finished,
-                &csvThreadArray[i], &QObject::deleteLater);
-        QObject::connect(&csvThreadArray[i], &T::workEnd,
-                this, &DBWriteClass::eh);
-        csvThreadArray[i].threadID = i;
-        csvThreadArray[i].start();
-    }
-
     //read ini file
     iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
-//    iniFile = new QSettings(QApplication::applicationDirPath()+"\\" + iniFileName + ".ini", QSettings::IniFormat);
-//std::cout << typeid(*this).name() << std::endl;
-//std::cout << typeid(this).name() << std::endl;
-//std::cout << iniFile->fileName().toStdString() << std::endl;
-//std::cout << QApplication::applicationDirPath().toStdString() << std::endl;
-//std::cout << QApplication::applicationName().toStdString() << std::endl;
-//std::cout << QApplication::applicationFilePath().toStdString() << std::endl;
 
     iniFile->beginGroup(iniSectionName);
-//    iniFile->beginGroup("dbwritedata");
     dbAddress = iniFile->value("address","qqq").toString();
     if(dbAddress == "qqq")
     {
@@ -201,20 +151,45 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID, int numthreads
         dbDatabaseName = "testdb";
         iniFile->setValue("database", dbDatabaseName);
     }
+    dbNumOfThreads = iniFile->value("threads",-1).toInt();
+    if(dbNumOfThreads == -1)
+    {
+        std::cout << "No number of threads value into ini-file, created default 6 (5 normal, 1 for 'lost')" << std::endl;
+        dbNumOfThreads = 6;
+        iniFile->setValue("threads", dbNumOfThreads);
+    }
     iniFile->endGroup();
     delete iniFile;
+
+    csvThreadArray = new T[dbNumOfThreads];
+    instanceID = instID;
+    dbConnName = iniSectionName;
+
+    //prepare and start threads
+    for(int i=0; i<dbNumOfThreads; i++)
+    {
+        csvThreadArray[i].dbConn = dbConnName;
+        QObject::connect(&csvThreadArray[i], &T::finished,
+                &csvThreadArray[i], &QObject::deleteLater);
+        QObject::connect(&csvThreadArray[i], &T::workEnd,
+                this, &DBWriteClass::threadSlot);
+        csvThreadArray[i].threadID = i;
+        csvThreadArray[i].start();
+    }
+    //last thread - thread for 'lost'
+    csvThreadArray[dbNumOfThreads-1].ready = false;
+    csvThreadArray[dbNumOfThreads-1].lostCSV = true;
 }
 
 template<class T>
 DBWriteClass<T>::~DBWriteClass()
 {
-    for(int i=0; i<numOfThreads; i++)
+    for(int i=0; i<dbNumOfThreads; i++)
     {
         csvThreadArray[i].mustFinish = true;
         csvThreadArray[i].wait();
     }
     delete []csvThreadArray;
-    delete []csvThreadReady;
     std::cout << "class deleted" << std::endl;
     {
         QSqlDatabase db = QSqlDatabase::database(dbConnName,false);
@@ -224,27 +199,21 @@ DBWriteClass<T>::~DBWriteClass()
 }
 
 template<class T>
-bool DBWriteClass<T>::startWrite()
+int DBWriteClass<T>::getFreeThread()
 {
-    for(int i=0; i<numOfThreads; i++)
-        if(csvThreadReady[i])
+    int retval = -1;
+
+    for(int i=0; i<dbNumOfThreads; i++)
+        if(csvThreadArray[i].ready)
         {
-            csvThreadReady[i] = false;
-            csvThreadArray[i].startWork = true;
-//            csvThreadArray[csvThreadArrayCounter].startWork = true;
-//            csvThreadArrayCounter++;
-//            if(csvThreadArrayCounter >= numOfThreads) csvThreadArrayCounter = 0;
+            retval = i;
+            break;
         }
+    return retval;
 }
 
 template<class T>
-void DBWriteClass<T>::retryWrite(int idx)
-{
-    csvThreadArray[idx].startWork = true;
-}
-
-template<class T>
-bool DBWriteClass<T>::dbConnect(QSqlError::ErrorType &errType,QString &errText)
+bool DBWriteClass<T>::dbConnect(QSqlError::ErrorType* errType,QString* errText)
 {
     QSqlDatabase::addDatabase("QMYSQL",dbConnName);
 
@@ -256,67 +225,40 @@ bool DBWriteClass<T>::dbConnect(QSqlError::ErrorType &errType,QString &errText)
 
     bool retval = db.open();
     QSqlError err = db.lastError();
-    errType = err.type();
-    errText = err.text();
+    *errType = err.type();
+    *errText = err.text();
     return(retval);
 }
 
 template<class T>
-void DBWriteClass<T>::setTableName(QString tname)
+void DBWriteClass<T>::setTableName()
 {
-    dbTableName = tname;
-    for(int i=0; i<numOfThreads; i++)
+    for(int i=0; i<dbNumOfThreads; i++)
         csvThreadArray[i].tableName = dbTableName;
 }
 
-
-// производные классы
-// м.б. - в отдельный файл выделить, а может и тут оставить, чтобы заголовков не плодить
-
-class dbqwe : public DBWriteClass<qwe>
+template<class T>
+bool DBWriteClass<T>::createTable(QString tname, QSqlError* sqlError)
 {
-public:
-    dbqwe(QString iniSectionName, int instID, int numthreads = 5):DBWriteClass(iniSectionName,instID,numthreads)
-    {
-        //без этого, даже пустого, определения ругается линковщик
-        //свой код, если надо
-    };
-//    ~dbqwe()
-//    {
-        //без этого, даже пустого, определения ругается линковщик
-        //свой код, если надо
-//    };
-    void eh(int thrID, int errCode, QString* outStrPtr = nullptr) override
-    {
-        std::cout << "dbqwe we slot: " << QString::number(thrID).toStdString() << "," << QString::number(errCode).toStdString()
-                  << ", instanceID = " << QString::number(instanceID).toStdString()<< std::endl;
-        if(outStrPtr == nullptr)
-            std::cout << "null pointer" << std::endl;
-        else
-            std::cout << outStrPtr->toStdString() << std::endl;
-        emit sig(instanceID,thrID,errCode,outStrPtr);
-    };
-};
+    bool retval;
 
-class logClass : public DBWriteClass<logThread>
-{
-
-public:
-    logClass(QString iniSectionName):DBWriteClass(iniSectionName, 100)
+    std::cout << "dbwriteclass create table" << std::endl;
+    std::cout << "call to child _createTable" << std::endl;
+    retval = _createTable(tname, sqlError);
+    if(retval)
     {
-        //без этого, даже пустого, определения ругается линковщик
-        //свой код, если надо
-    };
-    void eh(int thrID, int errCode, QString* outStrPtr = nullptr) override
-    {
-        if(outStrPtr == nullptr)
-            std::cout << "null pointer" << std::endl;
-        else
-            std::cout << outStrPtr->toStdString() << std::endl;
-        //do some work
-        emit sig(instanceID,thrID,errCode,outStrPtr);
+        std::cout << "continue create table" << std::endl;
+        dbTableName = tname;
+        setTableName();
     }
-//    QDateTime
+    return retval;
+}
+
+template<class T>
+void DBWriteClass<T>::threadSlot(int thrID, int errCode, QString* outStrPtr)
+{
+    _threadSlot(thrID, errCode, outStrPtr);
+    emit sig(instanceID,thrID,errCode,outStrPtr);
 };
 
 #endif // DBWRITECLASS_H
