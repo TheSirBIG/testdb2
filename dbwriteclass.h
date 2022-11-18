@@ -56,6 +56,8 @@
 //                          используется virtual _createTable для дочерних классов
 //                          должно уже быть соединение с бд
 // dbConnect                соединение с бд, возвращает код и текст ошибки
+// setDb...                 установка новых значений, потом надо вызвать dbConnect
+// getDb...                 чтение значений
 //
 //
 // после конструктора класса из основной программы надо:
@@ -111,6 +113,16 @@ public:
     DBWriteClass(QString iniSectionName, int instID);
     virtual ~DBWriteClass();
 
+    QString getDbUser();
+    void setDbUser(QString value);
+    QString getDbPassword();
+    void setDbPassword(QString value);
+    QString getDbAddress();
+    void setDbAddress(QString value);
+    QString getDbDatabaseName();
+    void setDbDatabaseName(QString value);
+    QString getDbTableName();
+
 //    void retryWrite(int idx);
     bool dbConnect(QSqlError::ErrorType* errType,QString* errText);
     bool createTable(QString tname, QSqlError* sqlError);
@@ -121,7 +133,6 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
 {
     //read ini file
     iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
-
     iniFile->beginGroup(iniSectionName);
     dbAddress = iniFile->value("address","qqq").toString();
     if(dbAddress == "qqq")
@@ -197,6 +208,81 @@ DBWriteClass<T>::~DBWriteClass()
     }
     QSqlDatabase::removeDatabase(dbConnName);
 }
+
+template<class T>
+QString DBWriteClass<T>::getDbTableName()
+{
+    return dbTableName;
+}
+
+template<class T>
+QString DBWriteClass<T>::getDbUser()
+{
+    return dbUser;
+}
+
+template<class T>
+void DBWriteClass<T>::setDbUser(QString value)
+{
+    dbUser = value;
+    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    iniFile->beginGroup(dbConnName);
+    iniFile->setValue("user", dbUser);
+    iniFile->endGroup();
+    delete iniFile;
+}
+
+template<class T>
+QString DBWriteClass<T>::getDbPassword()
+{
+    return dbPassword;
+}
+
+template<class T>
+void DBWriteClass<T>::setDbPassword(QString value)
+{
+    dbPassword = value;
+    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    iniFile->beginGroup(dbConnName);
+    iniFile->setValue("password", dbPassword);
+    iniFile->endGroup();
+    delete iniFile;
+}
+
+template<class T>
+QString DBWriteClass<T>::getDbAddress()
+{
+    return dbAddress;
+}
+
+template<class T>
+void DBWriteClass<T>::setDbAddress(QString value)
+{
+    dbAddress = value;
+    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    iniFile->beginGroup(dbConnName);
+    iniFile->setValue("address", dbAddress);
+    iniFile->endGroup();
+    delete iniFile;
+}
+
+template<class T>
+QString DBWriteClass<T>::getDbDatabaseName()
+{
+    return dbDatabaseName;
+}
+
+template<class T>
+void DBWriteClass<T>::setDbDatabaseName(QString value)
+{
+    dbDatabaseName = value;
+    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    iniFile->beginGroup(dbConnName);
+    iniFile->setValue("database", dbDatabaseName);
+    iniFile->endGroup();
+    delete iniFile;
+}
+
 
 template<class T>
 int DBWriteClass<T>::getFreeThread()
