@@ -51,9 +51,17 @@ public:
     int sleepTime = 200;
     int sleepLostTime = 2000;
     QString tableName;
+    QString dbUser;
+    QString dbPassword;
+    QString dbAddress;
+    QString dbDatabaseName;
+    bool dbConnected = false;
 
     virtual void _doWork() = 0;
     virtual void _endWork() = 0;
+    virtual void _saveForLost() = 0;
+    bool dbConnect();
+//    bool dbConnect(QString dbAddress, QString dbDatabase, QString dbUser, QString dbPassword);
 };
 
 #endif // DBWRITECSVTHREAD_H

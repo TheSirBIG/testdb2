@@ -13,6 +13,7 @@ public:
     {
 
     };
+    int write(QString txt);
 };
 
 #endif // LOGCLASS_H

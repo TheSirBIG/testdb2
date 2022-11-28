@@ -2,16 +2,20 @@
 #define LOGTHREAD_H
 
 #include "dbwritecsvthread.h"
+#include <QDateTime>
 
 class logThread : public DBWriteCSVThread
 {
     void _doWork() override;
     void _endWork() override;
+    void _saveForLost() override;
 public:
     logThread():DBWriteCSVThread()
     {
 
     };
+    QDateTime dt;
+    QString txt;
 };
 
 #endif // LOGTHREAD_H

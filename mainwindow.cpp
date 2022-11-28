@@ -25,7 +25,7 @@ const int numOfCollumn = 100;
 //const int numOfIteration = 10000;
 //DBWriteClass* qqq;
 //DBWriteClass<DBWriteCSVThread>* qqq1;
-dbqwe* qwe;
+//dbqwe* qwe;
 logClass* lc;
 
 MainWindow::MainWindow(QWidget *parent)
@@ -43,7 +43,7 @@ MainWindow::~MainWindow()
     closeDB();
 //    delete qqq1;
 //    delete qqq2;
-    delete qwe;
+//    delete qwe;
     delete lc;
     delete ui;
 }
@@ -291,12 +291,13 @@ void MainWindow::on_pushButton_6_released()
 //    delete qq2;
 
 //    qqq1 = new DBWriteClass<DBWriteCSVThread>("DBWriteClass",1,4);
-    qwe = new dbqwe("dbqwe",2);
+//    qwe = new dbqwe("dbqwe",2);
     lc = new logClass("lc");
 
 //    QObject::connect(qqq1, &dbq::sig,
-    QObject::connect(qwe, &dbq::sig,
-            this, &MainWindow::sigFrom);
+
+//    QObject::connect(qwe, &dbq::sig,
+//            this, &MainWindow::sigFrom);
 //    QObject::connect(qqq2, &dbq::sig,
     QObject::connect(lc, &dbq::sig,
             this, &MainWindow::sigFrom);
@@ -308,11 +309,15 @@ void MainWindow::on_pushButton_6_released()
 //std::cout << etype << "," << etext.toStdString() << std::endl;
     QSqlError::ErrorType etype;
     QString etext;
-    bool b;
-    b = lc->dbConnect(&etype,&etext);
-    if(!b)
+    bool b = false;
+    while(!b)
     {
-        std::cout << "error in connecting to db, error text: " << etext.toStdString() << std::endl;
+        b = lc->dbConnect(&etype,&etext);
+        if(!b)
+        {
+            std::cout << "error in connecting to db, error text: " << etext.toStdString() << std::endl;
+        }
+        _sleep(1);
     }
     QSqlError err;
     b = lc->createTable("logtable_00001",&err);
@@ -322,26 +327,9 @@ void MainWindow::on_pushButton_6_released()
     }
 }
 
-void MainWindow::on_pushButton_7_released()
+void MainWindow::on_pushButton_9_released()
 {
-    int num = this->ui->lineEdit->text().toUInt();
-//    qqq1->csvThreadArray[num].startWork = true;
-//    qqq2->csvThreadArray[num].startWork = true;
-    qwe->csvThreadArray[num].startWork = true;
-    lc->csvThreadArray[num].startWork = true;
-//    qqq1.csvThreadArray[num].startWork = true;
-//    qqq2.csvThreadArray[num].startWork = true;
-}
+    static int q = 0;
 
-void MainWindow::on_pushButton_8_released()
-{
-    int num = this->ui->lineEdit->text().toUInt();
-//    qqq1->csvThreadArray[num].mustFinish = true;
-//    qqq2->csvThreadArray[num].mustFinish = true;
-    qwe->csvThreadArray[num].mustFinish = true;
-    lc->csvThreadArray[num].mustFinish = true;
-//    qqq1.csvThreadArray[num].mustFinish = true;
-//    qqq2.csvThreadArray[num].mustFinish = true;
-
-//    qqq->csvThreadArray[num].wait();
+    lc->write("test-" + QString::number(q++));
 }

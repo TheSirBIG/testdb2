@@ -18,3 +18,8 @@ void qweThread::_endWork()
 {
     std::cout << "qwe finish state " << QString::number(threadID).toStdString() << std::endl;
 }
+
+void qweThread::_saveForLost()
+{
+
+}

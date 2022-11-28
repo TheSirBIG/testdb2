@@ -96,7 +96,6 @@ template<class T>class DBWriteClass : public dbq
 
     void setTableName();
     void threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr);
-    int getFreeThread();
 
 protected:
     int instanceID;
@@ -105,6 +104,7 @@ protected:
     //без virtual вызовется метод из DBWriteClass
     virtual bool _createTable(QString tname, QSqlError* sqlError) = 0;
     virtual void _threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr) = 0;
+    int getFreeThread();
 public:
     T* csvThreadArray;
 
@@ -179,7 +179,11 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
     //prepare and start threads
     for(int i=0; i<dbNumOfThreads; i++)
     {
-        csvThreadArray[i].dbConn = dbConnName;
+        csvThreadArray[i].dbConn = dbConnName + QString::number(i);
+        csvThreadArray[i].dbUser = dbUser;
+        csvThreadArray[i].dbDatabaseName = dbDatabaseName;
+        csvThreadArray[i].dbPassword = dbPassword;
+        csvThreadArray[i].dbAddress = dbAddress;
         QObject::connect(&csvThreadArray[i], &T::finished,
                 &csvThreadArray[i], &QObject::deleteLater);
         QObject::connect(&csvThreadArray[i], &T::workEnd,
@@ -301,6 +305,7 @@ int DBWriteClass<T>::getFreeThread()
 template<class T>
 bool DBWriteClass<T>::dbConnect(QSqlError::ErrorType* errType,QString* errText)
 {
+    bool retval = true;
     QSqlDatabase::addDatabase("QMYSQL",dbConnName);
 
     QSqlDatabase db = QSqlDatabase::database(dbConnName,false);
@@ -309,11 +314,20 @@ bool DBWriteClass<T>::dbConnect(QSqlError::ErrorType* errType,QString* errText)
     db.setPassword(dbPassword);
     db.setDatabaseName(dbDatabaseName);
 
-    bool retval = db.open();
-    QSqlError err = db.lastError();
-    *errType = err.type();
-    *errText = err.text();
-    return(retval);
+    retval = db.open();
+    if(!retval)
+    {
+        QSqlError err = db.lastError();
+        *errType = err.type();
+        *errText = err.text();
+    }
+//    else
+//        for(int i=0; i<dbNumOfThreads; i++)
+//        {
+//            retval &= csvThreadArray[i].dbConnect(dbAddress, dbDatabaseName, dbUser, dbPassword);
+//        }
+//
+    return retval;
 }
 
 template<class T>
