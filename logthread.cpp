@@ -9,18 +9,25 @@ void logThread::_doWork()
     if(lostCSV)
     {
 //        std::cout << "logthread into 'lost' thread " << QString::number(threadID).toStdString() << std::endl;
-        sleep(2);
+//        sleep(2);
     }
     else
     {
-        std::cout << "logthread into thread " << QString::number(threadID).toStdString() << std::endl;
+//        std::cout << "logthread into thread " << QString::number(threadID).toStdString() << std::endl;
 //        sleep(4);
 
         QSqlQuery query(QSqlDatabase::database(dbConn));
-        QString qqq;
-        qqq = "insert into " + tableName + " (dt,txt) values('" + dt.toString("yyyy-MM-dd HH:mm:ss.zzz") + "','" + txt + "')";
-        std::cout << qqq.toStdString() << std::endl;
-        retval = query.exec(qqq);
+//        QString qqq;
+//        qqq = "insert into " + tableName + " (dt,txt) values('" + dt.toString("yyyy-MM-dd HH:mm:ss.zzz") + "','" + txt + "')";
+
+        _prepareQuery();
+//        queryText = "insert into " + tableName + " (dt,txt) values('" + dt.toString("yyyy-MM-dd HH:mm:ss.zzz") + "','" + txt + "')";
+
+//        std::cout << qqq.toStdString() << std::endl;
+//        retval = query.exec(qqq);
+
+//        std::cout << queryText.toStdString() << std::endl;
+        retval = query.exec(queryText);
         if(!retval)
         {
             outStr = query.lastError().text();
@@ -44,4 +51,27 @@ void logThread::_saveForLost()
 {
     //сохранение для обработки в lostCSV
     std::cout << "into saveforlost" << std::endl;
+
+    QString prepfilename = filePath+dbConn;
+    std::cout << "prep=" << prepfilename.toStdString() << std::endl;
+    QString filename;
+    for(int i=0; i<INT_MAX; i++)
+    {
+        filename = prepfilename + QString::number(i);
+        if(!QFile::exists(filename)) break;
+    }
+    //найдено первое свободное имя
+    std::cout << "file=" << filename.toStdString() << std::endl;
+    QFile file(filename);
+    QTextStream stream(&file);
+    file.open(QIODevice::WriteOnly | QIODevice::Text);
+    stream << queryText << endl;
+    stream.flush();
+    file.close();
+}
+
+void logThread::_prepareQuery()
+{
+    queryText = "insert into " + tableName + " (dt,txt) values('" + dt.toString("yyyy-MM-dd HH:mm:ss.zzz") + "','" + txt + "')";
+        std::cout << queryText.toStdString() << std::endl;
 }

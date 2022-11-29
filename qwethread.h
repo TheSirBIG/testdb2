@@ -8,6 +8,7 @@ class qweThread : public DBWriteCSVThread
     void _doWork() override;
     void _endWork() override;
     void _saveForLost() override;
+    void _prepareQuery() override;
 public:
     qweThread():DBWriteCSVThread()
     {

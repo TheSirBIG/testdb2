@@ -7,6 +7,20 @@
 // если ошибка в <l>: передача по dim(???)
 // вообще, практически любой чих: запись в <l>
 //
+// сколько выбрать потоков:
+// (проверял для для logclass - там не пакетная запись)
+// в этой конфигурации ожидание переподключения к бд 5 секунд (видимо, какие-то настройки драйвера по-умолчанию)
+// соответственно - поток эти 5 секунд висит на dbconn, только после перейдет на 'start and no dbconn', если была запущена в него задача
+// т.е. количество потоков = это примерное количество запросов в секунду * 5 и +1 для lost
+// реально - делал примерно 3 раза в секунду, хватило 8 потоков ???
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -41,6 +55,10 @@
 // dbConnName               имя соединения с бд, копирует iniSectionName
 // dbDatabaseName           имя базы данных
 // dbTableName              имя таблицы - задается с уровня выше!!!
+// csvFilePath              путь к файлам csv
+//                          сделать общий ресурс на схд, подмонтировать под этим путем к машинам с mysql и этой программой!!!!!
+//
+//
 //
 // конструктор:
 // iniSectionName           название секции в ini-файле. Также это уникальное имя для объекта бд
@@ -55,15 +73,17 @@
 // createTable              создать таблицу, передать имя в потоки
 //                          используется virtual _createTable для дочерних классов
 //                          должно уже быть соединение с бд
-// dbConnect                соединение с бд, возвращает код и текст ошибки
+// dbConnect                соединение/переподключение с бд, возвращает код и текст ошибки
+//                          сбрасывает флаг соединения в потоках, т.е. они сами начинают переподключаться
 // setDb...                 установка новых значений, потом надо вызвать dbConnect
 // getDb...                 чтение значений
 //
 //
 // после конструктора класса из основной программы надо:
-// вызвать dbConnect, если ошибка - повторять, пока не надоест(???) ))) (все коды и тексты у главной программы есть)
-// задать имя таблицы, через createTable
-// в процессе работы при ошибке дисконнекта (сигнал от потоков) - опять dbConnect - ???
+// вызвать dbConnect, если ошибка - повторять, пока не надоест ))) (все коды и тексты у главной программы есть)
+// через createTable задать имя таблицы (пусть даже существующей, там ничего не удалится)
+// в процессе работы при ошибке дисконнекта (сигнал от потоков) - опять dbConnect, пока не надоест
+// потоки сами соединятся с бд
 //
 // при необходимости менять имя таблицы через createTable
 //  причины - а шут его знает, но все в одну сваливать не очень хорошо, думаю... или по размеру файла, или как-то по датам...
@@ -93,6 +113,7 @@ template<class T>class DBWriteClass : public dbq
     QString dbAddress;
     QString dbDatabaseName;
     QString dbTableName = "testdb2";
+    QString csvFilePath;
 
     void setTableName();
     void threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr);
@@ -122,10 +143,11 @@ public:
     QString getDbDatabaseName();
     void setDbDatabaseName(QString value);
     QString getDbTableName();
-
-//    void retryWrite(int idx);
-    bool dbConnect(QSqlError::ErrorType* errType,QString* errText);
     bool createTable(QString tname, QSqlError* sqlError);
+    QString getCsvFilePath();
+    void setCsvFilePath(QString value);
+
+    bool dbConnect(QSqlError::ErrorType* errType,QString* errText);
 };
 
 template<class T>
@@ -169,6 +191,13 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
         dbNumOfThreads = 6;
         iniFile->setValue("threads", dbNumOfThreads);
     }
+    csvFilePath = iniFile->value("filepath","qqq").toString();
+    if(csvFilePath == "qqq")
+    {
+        std::cout << "No filepath value into ini-file, created default '/mnt/common/'" << std::endl;
+        csvFilePath = "/mnt/common/";
+        iniFile->setValue("filepath", csvFilePath);
+    }
     iniFile->endGroup();
     delete iniFile;
 
@@ -184,11 +213,13 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
         csvThreadArray[i].dbDatabaseName = dbDatabaseName;
         csvThreadArray[i].dbPassword = dbPassword;
         csvThreadArray[i].dbAddress = dbAddress;
+        csvThreadArray[i].filePath = csvFilePath;
         QObject::connect(&csvThreadArray[i], &T::finished,
                 &csvThreadArray[i], &QObject::deleteLater);
         QObject::connect(&csvThreadArray[i], &T::workEnd,
                 this, &DBWriteClass::threadSlot);
         csvThreadArray[i].threadID = i;
+        csvThreadArray[i].dbConnected = false;
         csvThreadArray[i].start();
     }
     //last thread - thread for 'lost'
@@ -234,6 +265,8 @@ void DBWriteClass<T>::setDbUser(QString value)
     iniFile->setValue("user", dbUser);
     iniFile->endGroup();
     delete iniFile;
+    for(int i=0; i<dbNumOfThreads; i++)
+        csvThreadArray[i].dbUser = dbUser;
 }
 
 template<class T>
@@ -251,6 +284,8 @@ void DBWriteClass<T>::setDbPassword(QString value)
     iniFile->setValue("password", dbPassword);
     iniFile->endGroup();
     delete iniFile;
+    for(int i=0; i<dbNumOfThreads; i++)
+        csvThreadArray[i].dbPassword = dbPassword;
 }
 
 template<class T>
@@ -268,6 +303,8 @@ void DBWriteClass<T>::setDbAddress(QString value)
     iniFile->setValue("address", dbAddress);
     iniFile->endGroup();
     delete iniFile;
+    for(int i=0; i<dbNumOfThreads; i++)
+        csvThreadArray[i].dbAddress = dbAddress;
 }
 
 template<class T>
@@ -285,6 +322,8 @@ void DBWriteClass<T>::setDbDatabaseName(QString value)
     iniFile->setValue("database", dbDatabaseName);
     iniFile->endGroup();
     delete iniFile;
+    for(int i=0; i<dbNumOfThreads; i++)
+        csvThreadArray[i].dbDatabaseName = dbDatabaseName;
 }
 
 
@@ -321,12 +360,10 @@ bool DBWriteClass<T>::dbConnect(QSqlError::ErrorType* errType,QString* errText)
         *errType = err.type();
         *errText = err.text();
     }
-//    else
-//        for(int i=0; i<dbNumOfThreads; i++)
-//        {
-//            retval &= csvThreadArray[i].dbConnect(dbAddress, dbDatabaseName, dbUser, dbPassword);
-//        }
-//
+
+    for(int i=0; i<dbNumOfThreads; i++)
+        csvThreadArray[i].dbConnected = false;
+
     return retval;
 }
 
@@ -352,6 +389,25 @@ bool DBWriteClass<T>::createTable(QString tname, QSqlError* sqlError)
         setTableName();
     }
     return retval;
+}
+
+template<class T>
+QString DBWriteClass<T>::getCsvFilePath()
+{
+    return csvFilePath;
+}
+
+template<class T>
+void DBWriteClass<T>::setCsvFilePath(QString value)
+{
+    csvFilePath = value;
+    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    iniFile->beginGroup(dbConnName);
+    iniFile->setValue("filepath", csvFilePath);
+    iniFile->endGroup();
+    delete iniFile;
+    for(int i=0; i<dbNumOfThreads; i++)
+        csvThreadArray[i].filePath = csvFilePath;
 }
 
 template<class T>

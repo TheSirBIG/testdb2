@@ -24,9 +24,10 @@
 // sleepLostTime    пауза для потока lostCSV
 // tableName        имя таблицы для записи
 //
-// _doWork           перегружаемая основная функция обработки
-// _endWork          перегружаемая, вызывается при остановке потока (на всякий случай, вдруг какой код там потребуется)
-//
+// _doWork          перегружаемая основная функция обработки
+// _endWork         перегружаемая, вызывается при остановке потока (на всякий случай, вдруг какой код там потребуется)
+// _prepareQuery    подготовка запроса, потом его или выполнить, или записать в lost через _saveForLost
+// _saveForLost     запись в lost файл
 
 // если обнаружилась ошибка с бд - вызвать сигнал с ошибкой, переименовать файл для 'lost'
 //      если ошибка соединения - кто будет устранять? класс dbconnectclass, или программа выше уровнем???
@@ -47,19 +48,20 @@ public:
     int threadID = 0;
     QString outStr;
     QString dbConn;
-    QString filePath;
-    int sleepTime = 200;
-    int sleepLostTime = 2000;
-    QString tableName;
     QString dbUser;
+    QString dbDatabaseName;
     QString dbPassword;
     QString dbAddress;
-    QString dbDatabaseName;
+    QString filePath;
+    QString tableName;
+    int sleepTime = 200;
+    int sleepLostTime = 2000;
     bool dbConnected = false;
 
     virtual void _doWork() = 0;
     virtual void _endWork() = 0;
     virtual void _saveForLost() = 0;
+    virtual void _prepareQuery() = 0;
     bool dbConnect();
 //    bool dbConnect(QString dbAddress, QString dbDatabase, QString dbUser, QString dbPassword);
 };

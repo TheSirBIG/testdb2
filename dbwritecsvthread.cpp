@@ -45,6 +45,7 @@ void DBWriteCSVThread::run()
         {
             std::cout << "into start and no dbconnected," << QString::number(threadID).toStdString() << std::endl;
             startWork = false;
+            _prepareQuery();
             _saveForLost();
             emit workEnd(threadID, errorCodes::THREAD_SAVED_FOR_LOST/*, &outStr*/);
             ready = true;

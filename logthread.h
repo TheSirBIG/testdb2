@@ -9,6 +9,8 @@ class logThread : public DBWriteCSVThread
     void _doWork() override;
     void _endWork() override;
     void _saveForLost() override;
+    void _prepareQuery() override;
+
 public:
     logThread():DBWriteCSVThread()
     {
@@ -16,6 +18,7 @@ public:
     };
     QDateTime dt;
     QString txt;
+    QString queryText;
 };
 
 #endif // LOGTHREAD_H

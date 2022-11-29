@@ -23,3 +23,8 @@ void qweThread::_saveForLost()
 {
 
 }
+
+void qweThread::_prepareQuery()
+{
+
+}

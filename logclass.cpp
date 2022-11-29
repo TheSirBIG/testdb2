@@ -3,12 +3,12 @@
 
 void logClass::_threadSlot(int thrID, int errCode, QString *outStrPtr)
 {
-    std::cout << "logclass slot from thread: " << QString::number(thrID).toStdString() << ", code: " <<
-                 QString::number(errCode).toStdString() << std::endl;
-    if(outStrPtr == nullptr)
-        std::cout << "logclass outstr null pointer" << std::endl;
-    else
-        std::cout << outStrPtr->toStdString() << std::endl;
+//    std::cout << "logclass slot from thread: " << QString::number(thrID).toStdString() << ", code: " <<
+//                 QString::number(errCode).toStdString() << std::endl;
+//    if(outStrPtr == nullptr)
+//        std::cout << "logclass outstr null pointer" << std::endl;
+//    else
+//        std::cout << outStrPtr->toStdString() << std::endl;
 }
 
 bool logClass::_createTable(QString tname, QSqlError* sqlError)
@@ -37,7 +37,7 @@ int logClass::write(QString txt)
     }
     else
     {
-  freeThread = 3;
+//  freeThread = 3;
         csvThreadArray[freeThread].ready = false;
         csvThreadArray[freeThread].dt = QDateTime::currentDateTime();
         csvThreadArray[freeThread].txt = txt;
