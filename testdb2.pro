@@ -9,23 +9,19 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    dbqwe.cpp \
     dbwritecsvthread.cpp \
     logclass.cpp \
     logthread.cpp \
     main.cpp \
-    mainwindow.cpp \
-    qwethread.cpp
+    mainwindow.cpp
 
 HEADERS += \
-    dbqwe.h \
     dbwriteclass.h \
     dbwritecsvthread.h \
     errorcodes.h \
     logclass.h \
     logthread.h \
-    mainwindow.h \
-    qwethread.h
+    mainwindow.h
 
 FORMS += \
     mainwindow.ui

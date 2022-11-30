@@ -4,55 +4,35 @@
 
 void DBWriteCSVThread::run()
 {
-    bool dbc;
-//    int oldSleepTime = sleepTime;
-//    int oldSleepLostTime = sleepLostTime;
-
     while(1)
     {
         if(!dbConnected)
         {
-            std::cout << "into dbconnected," << QString::number(threadID).toStdString() << std::endl;
-            dbc = dbConnect();
-            if(!dbc)
-            {
-//                oldSleepTime = sleepTime;
-//                oldSleepLostTime = sleepLostTime;
-//                sleepTime = sleepLostTime = 5000;
-                dbConnected = false;
-            }
-            else
-            {
-//                sleepTime = oldSleepTime;
-//                sleepLostTime = oldSleepLostTime;
-                dbConnected = true;
-            }
+//            std::cout << "into dbconnected," << QString::number(threadID).toStdString() << std::endl;
+            dbConnected = dbConnect();
         }
-        if(startWork && dbConnected)
+        if(startWork && dbConnected)    //запущен цикл записи и есть связь с бд (как минимум - была при последнем обращении)
         {
-            std::cout << "into start&&dbconnected," << QString::number(threadID).toStdString() << std::endl;
+//            std::cout << "into start&&dbconnected," << QString::number(threadID).toStdString() << std::endl;
             startWork = false;
             _doWork();
-            if(!lostCSV)
+            if(!lostCSV) ready = true; //для lost - ready=false всегда, чтобы не участвовал в поиске свободного потока
+        }
+        else if(startWork)  //запущен цикл записи, но связи с бд нет
+        {
+            if(!lostCSV)    //в lost ничего делать не надо, это он как-раз подчищает за другими
             {
-                //outStr = "string data = " + QString::number(threadID) + "," + QString::number(errorCodes::THREAD_END_OF_WORK);
-                //строчку ниже - вроде как и не надо, только для отладки
-                //emit workEnd(threadID, errorCodes::THREAD_END_OF_WORK/*, &outStr*/);
+//                std::cout << "into start and no dbconnected," << QString::number(threadID).toStdString() << std::endl;
+                startWork = false;
+                _prepareQuery();
+                _saveForLost();
+                emit workEnd(threadID, errorCodes::THREAD_SAVED_FOR_LOST/*, &outStr*/);
                 ready = true;
             }
         }
-        else if(startWork)
-        {
-            std::cout << "into start and no dbconnected," << QString::number(threadID).toStdString() << std::endl;
-            startWork = false;
-            _prepareQuery();
-            _saveForLost();
-            emit workEnd(threadID, errorCodes::THREAD_SAVED_FOR_LOST/*, &outStr*/);
-            ready = true;
-        }
         else if(mustFinish)
         {
-            std::cout << "into mustfinish," << QString::number(threadID).toStdString() << std::endl;
+//            std::cout << "into mustfinish," << QString::number(threadID).toStdString() << std::endl;
             _endWork();
             {
                 QSqlDatabase db = QSqlDatabase::database(dbConn,false);
@@ -75,11 +55,8 @@ void DBWriteCSVThread::run()
     }
 }
 
-//bool DBWriteCSVThread::dbConnect(QString dbAddress, QString dbDatabase, QString dbUser, QString dbPassword)
 bool DBWriteCSVThread::dbConnect()
 {
-    bool retval;
-
     QSqlDatabase::addDatabase("QMYSQL",dbConn);
 
     QSqlDatabase db = QSqlDatabase::database(dbConn,false);
@@ -88,7 +65,7 @@ bool DBWriteCSVThread::dbConnect()
     db.setPassword(dbPassword);
     db.setDatabaseName(dbDatabaseName);
 
-    retval = db.open();
+    bool retval = db.open();
     if(!retval)
     {
         QSqlError err = db.lastError();

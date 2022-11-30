@@ -12,19 +12,24 @@
 // в этой конфигурации ожидание переподключения к бд 5 секунд (видимо, какие-то настройки драйвера по-умолчанию)
 // соответственно - поток эти 5 секунд висит на dbconn, только после перейдет на 'start and no dbconn', если была запущена в него задача
 // т.е. количество потоков = это примерное количество запросов в секунду * 5 и +1 для lost
-// реально - делал примерно 3 раза в секунду, хватило 8 потоков ???
+// реально - делал примерно 3 раза в секунду, хватило 8 потоков ??? (для logClass)
 //
 //
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
+// структура ini-файла
+// файл должен находиться на одном уровне с exe (при запуске из-под qt - на уровень выше(windows))
+// имя секции   имя, передаваемое в класс при создании
+// address      адрес хоста mysql (по стандартному порту 3306)
+// user         имя пользователя
+// password     пароль пользователя
+// database     имя используемой базы данных
+//              база данных должна быть создана ДО запуска программы!!!
+// threads      общее число запускаемых потоков (включая поток для lost)
+// filepath     путь для хранения обычных и lost csv-файлов (в случае с логом - просто текстовых lost файлов)
+//              делать общую папку на схд, монтировать ее к машине с mysql и к этой машине
+//              в ini указывать этот путь, по нему будут писаться файлы
+//              это для того, чтобы хост mysql мог использовать load infile без модификатора local!!!
+//              (там и число чтения/записи будет 3, против 5 с local, да и какие-то проблемы с этим local, то работает, то ни в какую)
+/*------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef DBWRITECLASS_H
 #define DBWRITECLASS_H
 
@@ -33,50 +38,48 @@
 #include <iostream>
 #include <QApplication>
 
-// использую новый (второй) вид QObject::connect
+// использую новый (второй) вид функции QObject::connect
 // в этом случае нужен только сигнал, вместо слота можно подключить любую функцию!!!
-// также работает полиморфизм(???) для eh
-// так что в наследовании вместо dbq поставил QObject (без него таки ругается)
-// update
-// ввел наследование от dbq, чтобы посылать сигнал основному обработчику (MainWindow)
 
 // класс dqb
+// базовый класс для DBWriteClass, нужен только для реализации сигнала
+//      (т.к. Q_OBJECT нельзя использовать вместе с шаблонами, ограничения Qt)
+// функции:
 // signal sig   пересылка сигнала основному обработчику
 //              передает id класса, id потока, код ошибки и ,если надо, расширенную информацию в виде указателя на qstring
 //
 //
 // класс DBWriteClass
-// instanceID               id класса, возможно будет полезен при отладке
-// dbNumOfThreads           количество созданных потоков
-//      update: перенес из конструктора в ini-файл
-// csvThreadArray           массив потоков
-// iniFile                  для чтения ini-файла, файл должен находиться на одном уровне с exe (при запуске из-под qt - на уровень выше(windows))
-// db...                    для доступа к базе данных
-// dbConnName               имя соединения с бд, копирует iniSectionName
-// dbDatabaseName           имя базы данных
+// базовый класс для создаваемых классов, в параметре шаблона - класс потока
+//      (классы потока - для каждого свои)
+// переменные:
+// dbNumOfThreads           количество потоков, читается из ini-файла
+// db...                    для доступа к базе данных, читается из ini-файла
+// dbDatabaseName           имя базы данных, читается из ini-файла
 // dbTableName              имя таблицы - задается с уровня выше!!!
-// csvFilePath              путь к файлам csv
-//                          сделать общий ресурс на схд, подмонтировать под этим путем к машинам с mysql и этой программой!!!!!
-//
-//
+//                          значение по умолчанию - test_table
+// csvFilePath              путь к файлам csv, читается из ini-файла
+// csvThreadArray           массив потоков
+// instanceID               id класса, передается в конструкторе
+// dbConnName               имя соединения с бд, копирует iniSectionName, передается в конструкторе
 //
 // конструктор:
 // iniSectionName           название секции в ini-файле. Также это уникальное имя для объекта бд
 // instID                   id класса, возможно будет полезен при отладке
 //
+// функции:
 // setTableName             установка имени таблицы из dbTableName в потоки, вызывается из createTable
 // threadSlot               "слот" для связи с сигналом от потока.
-//                          используется virtual _threadSlot для дочерних классов (если не потребуется - то удалю)
+//                          используется virtual _threadSlot для дочерних классов
 //                          по факту - просто перебрасывает данные +instanceID основной программе
 // getFreeThread            индекс первого свободного потока, или -1
-//
+// getDbTabelName           текущая таблица
 // createTable              создать таблицу, передать имя в потоки
 //                          используется virtual _createTable для дочерних классов
 //                          должно уже быть соединение с бд
+//                          вызывать после установки связи с бд!!!
 // dbConnect                соединение/переподключение с бд, возвращает код и текст ошибки
 //                          сбрасывает флаг соединения в потоках, т.е. они сами начинают переподключаться
-// setDb...                 установка новых значений, потом надо вызвать dbConnect
-// getDb...                 чтение значений
 //
 //
 // после конструктора класса из основной программы надо:
@@ -91,7 +94,6 @@
 
 
 class dbq : public QObject
-//только для возможности иметь слоты в классе с шаблоном
 {
     Q_OBJECT
 signals:
@@ -100,23 +102,24 @@ signals:
 
 // варианты объявления классов на базе DBWriteClass:
 // работает:    глобальный динамический
-//              член класса mainwindow динамический
-//              член класса mainwindow статический
+//              член другого класса динамический
+//              член другого класса статический
 // не работает: глобальный статический (похоже - нужен родитель обязательно)
 template<class T>class DBWriteClass : public dbq
 {
-    QSettings* iniFile;
-
     int dbNumOfThreads;
     QString dbUser;
     QString dbPassword;
     QString dbAddress;
     QString dbDatabaseName;
-    QString dbTableName = "testdb2";
+    QString dbTableName = "test_table";
     QString csvFilePath;
 
     void setTableName();
     void threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr);
+
+public:
+    T* csvThreadArray;
 
 protected:
     int instanceID;
@@ -126,14 +129,15 @@ protected:
     virtual bool _createTable(QString tname, QSqlError* sqlError) = 0;
     virtual void _threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr) = 0;
     int getFreeThread();
-public:
-    T* csvThreadArray;
 
 public:
-// iniSectionName - также будет connectionname для adddatabase
     DBWriteClass(QString iniSectionName, int instID);
     virtual ~DBWriteClass();
 
+    QString getDbTableName();
+    bool createTable(QString tname, QSqlError* sqlError);
+
+/*
     QString getDbUser();
     void setDbUser(QString value);
     QString getDbPassword();
@@ -142,10 +146,9 @@ public:
     void setDbAddress(QString value);
     QString getDbDatabaseName();
     void setDbDatabaseName(QString value);
-    QString getDbTableName();
-    bool createTable(QString tname, QSqlError* sqlError);
     QString getCsvFilePath();
     void setCsvFilePath(QString value);
+*/
 
     bool dbConnect(QSqlError::ErrorType* errType,QString* errText);
 };
@@ -154,8 +157,9 @@ template<class T>
 DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
 {
     //read ini file
-    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    QSettings* iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
     iniFile->beginGroup(iniSectionName);
+    std::cout << "Begin to read ini file" << std::endl;
     dbAddress = iniFile->value("address","qqq").toString();
     if(dbAddress == "qqq")
     {
@@ -187,8 +191,8 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
     dbNumOfThreads = iniFile->value("threads",-1).toInt();
     if(dbNumOfThreads == -1)
     {
-        std::cout << "No number of threads value into ini-file, created default 6 (5 normal, 1 for 'lost')" << std::endl;
-        dbNumOfThreads = 6;
+        std::cout << "No number of threads value into ini-file, created default 10 (9 normal, 1 for 'lost')" << std::endl;
+        dbNumOfThreads = 10;
         iniFile->setValue("threads", dbNumOfThreads);
     }
     csvFilePath = iniFile->value("filepath","qqq").toString();
@@ -200,6 +204,7 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
     }
     iniFile->endGroup();
     delete iniFile;
+    std::cout << "ini file was readed or created" << std::endl;
 
     csvThreadArray = new T[dbNumOfThreads];
     instanceID = instID;
@@ -208,7 +213,7 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
     //prepare and start threads
     for(int i=0; i<dbNumOfThreads; i++)
     {
-        csvThreadArray[i].dbConn = dbConnName + QString::number(i);
+        csvThreadArray[i].dbConn = dbConnName + QString::number(i).rightJustified(3,'0');
         csvThreadArray[i].dbUser = dbUser;
         csvThreadArray[i].dbDatabaseName = dbDatabaseName;
         csvThreadArray[i].dbPassword = dbPassword;
@@ -236,7 +241,7 @@ DBWriteClass<T>::~DBWriteClass()
         csvThreadArray[i].wait();
     }
     delete []csvThreadArray;
-    std::cout << "class deleted" << std::endl;
+    std::cout << "Class deleted" << std::endl;
     {
         QSqlDatabase db = QSqlDatabase::database(dbConnName,false);
         if(db.isOpen()) db.close();
@@ -250,6 +255,7 @@ QString DBWriteClass<T>::getDbTableName()
     return dbTableName;
 }
 
+/*
 template<class T>
 QString DBWriteClass<T>::getDbUser()
 {
@@ -260,7 +266,7 @@ template<class T>
 void DBWriteClass<T>::setDbUser(QString value)
 {
     dbUser = value;
-    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    QSettings* iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
     iniFile->beginGroup(dbConnName);
     iniFile->setValue("user", dbUser);
     iniFile->endGroup();
@@ -279,7 +285,7 @@ template<class T>
 void DBWriteClass<T>::setDbPassword(QString value)
 {
     dbPassword = value;
-    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    QSettings* iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
     iniFile->beginGroup(dbConnName);
     iniFile->setValue("password", dbPassword);
     iniFile->endGroup();
@@ -298,7 +304,7 @@ template<class T>
 void DBWriteClass<T>::setDbAddress(QString value)
 {
     dbAddress = value;
-    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    QSettings* iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
     iniFile->beginGroup(dbConnName);
     iniFile->setValue("address", dbAddress);
     iniFile->endGroup();
@@ -317,7 +323,7 @@ template<class T>
 void DBWriteClass<T>::setDbDatabaseName(QString value)
 {
     dbDatabaseName = value;
-    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    QSettings* iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
     iniFile->beginGroup(dbConnName);
     iniFile->setValue("database", dbDatabaseName);
     iniFile->endGroup();
@@ -326,6 +332,25 @@ void DBWriteClass<T>::setDbDatabaseName(QString value)
         csvThreadArray[i].dbDatabaseName = dbDatabaseName;
 }
 
+template<class T>
+QString DBWriteClass<T>::getCsvFilePath()
+{
+    return csvFilePath;
+}
+
+template<class T>
+void DBWriteClass<T>::setCsvFilePath(QString value)
+{
+    csvFilePath = value;
+    QSettings* iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
+    iniFile->beginGroup(dbConnName);
+    iniFile->setValue("filepath", csvFilePath);
+    iniFile->endGroup();
+    delete iniFile;
+    for(int i=0; i<dbNumOfThreads; i++)
+        csvThreadArray[i].filePath = csvFilePath;
+}
+*/
 
 template<class T>
 int DBWriteClass<T>::getFreeThread()
@@ -379,35 +404,14 @@ bool DBWriteClass<T>::createTable(QString tname, QSqlError* sqlError)
 {
     bool retval;
 
-    std::cout << "dbwriteclass create table" << std::endl;
-    std::cout << "call to child _createTable" << std::endl;
+    std::cout << "Creating table" << std::endl;
     retval = _createTable(tname, sqlError);
     if(retval)
     {
-        std::cout << "continue create table" << std::endl;
         dbTableName = tname;
         setTableName();
     }
     return retval;
-}
-
-template<class T>
-QString DBWriteClass<T>::getCsvFilePath()
-{
-    return csvFilePath;
-}
-
-template<class T>
-void DBWriteClass<T>::setCsvFilePath(QString value)
-{
-    csvFilePath = value;
-    iniFile = new QSettings(QApplication::applicationName()+".ini", QSettings::IniFormat);
-    iniFile->beginGroup(dbConnName);
-    iniFile->setValue("filepath", csvFilePath);
-    iniFile->endGroup();
-    delete iniFile;
-    for(int i=0; i<dbNumOfThreads; i++)
-        csvThreadArray[i].filePath = csvFilePath;
 }
 
 template<class T>
