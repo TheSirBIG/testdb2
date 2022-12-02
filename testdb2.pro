@@ -13,7 +13,9 @@ SOURCES += \
     logclass.cpp \
     logthread.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    testcsvclass.cpp \
+    testcsvthread.cpp
 
 HEADERS += \
     dbwriteclass.h \
@@ -21,7 +23,9 @@ HEADERS += \
     errorcodes.h \
     logclass.h \
     logthread.h \
-    mainwindow.h
+    mainwindow.h \
+    testcsvclass.h \
+    testcsvthread.h
 
 FORMS += \
     mainwindow.ui

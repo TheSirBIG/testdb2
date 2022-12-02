@@ -1,11 +1,12 @@
-#include "logthread.h"
-#include <QtSql>
+#include "testcsvthread.h"
 #include "errorcodes.h"
+#include <QtSql>
 
-void logThread::_doWork()
+void testCsvThread::_doWork()
 {
     int retval;
     QString fn;
+    QString fn_only;
 
     if(lostCSV)
     {
@@ -16,11 +17,10 @@ void logThread::_doWork()
         QFileInfoList list = dir.entryInfoList( nameFilter, QDir::Files );
         if(!list.isEmpty())
         {
+            fn_only = list.first().fileName();
             fn = list.first().absoluteFilePath();
             QFile file(fn);
-            file.open(QIODevice::ReadOnly | QIODevice::Text);
-            queryText = file.readLine();
-            file.close();
+            setQuery(fn_only);
             QSqlQuery query(QSqlDatabase::database(dbConn));
             retval = query.exec(queryText);
             if(!retval)
@@ -47,20 +47,24 @@ void logThread::_doWork()
         {
             outStr = query.lastError().text();
             emit workEnd(threadID, errorCodes::THREAD_QUERY_ERROR ,&outStr);
-            //сброс флага соединения с бд, пусть переподключится заново, и, если что, ошибку выведет, что за проблема
+            //сброс флага соединения с бд, пусть переподключится заново, и, если что, выведет ошибку
             dbConnected = false;
             //сохранить файл для lostCSV !!!!
             _saveForLost();
         }
+        else
+        {
+            QFile::remove(filePath+fName);
+        }
     }
 }
 
-void logThread::_endWork()
+void testCsvThread::_endWork()
 {
-    std::cout << "logThread finish state " << QString::number(threadID).toStdString() << std::endl;
+    std::cout << "testCsvThread finish state " << QString::number(threadID).toStdString() << std::endl;
 }
 
-void logThread::_saveForLost()
+void testCsvThread::_saveForLost()
 {
     //сохранение для обработки в lostCSV
     //в случае csv - просто переименовать созданный в _prepareQuery файл
@@ -72,15 +76,34 @@ void logThread::_saveForLost()
         if(!QFile::exists(filename)) break;
     }
     //найдено первое свободное имя
-    QFile file(filename);
-    QTextStream stream(&file);
-    file.open(QIODevice::WriteOnly | QIODevice::Text);
-    stream << queryText << endl;
-    stream.flush();
-    file.close();
+    //теперь переименовать csv файл в это имя
+    QFile::rename(filePath+fName, filename);
 }
 
-void logThread::_prepareQuery()
+void testCsvThread::_prepareQuery()
 {
-    queryText = "insert into " + tableName + " (dt,txt) values('" + dt.toString("yyyy-MM-dd HH:mm:ss.zzz") + "','" + txt + "')";
+    //создание файла csv
+    //в примере - создается одна строка
+    fName = "csv" + dbConn;
+    QFile file(filePath+fName);
+    QTextStream stream(&file);
+    file.open(QIODevice::WriteOnly | QIODevice::Text);
+    QString ss = "0;";
+    for(int i=0; i<100; i++)
+    {
+        ss += QString::number(data[i]);
+        if(i==99) ss+="\n"; else ss+=";";
+    }
+    stream << ss;
+    stream.flush();
+    file.close();
+    //создание запроса к mysql
+//    queryText = "LOAD DATA INFILE '" + sqlFilePath + fName + "' INTO TABLE " + tableName + " FIELDS TERMINATED BY ';' LINES TERMINATED BY '\n' SET id=DEFAULT";
+    setQuery(fName);
+}
+
+void testCsvThread::setQuery(QString fn)
+{
+//    queryText = "LOAD DATA INFILE '" + sqlFilePath + fName + "' INTO TABLE " + tableName + " FIELDS TERMINATED BY ';' LINES TERMINATED BY '\n' SET id=DEFAULT";
+    queryText = "LOAD DATA INFILE '" + sqlFilePath + fn + "' INTO TABLE " + tableName + " FIELDS TERMINATED BY ';' LINES TERMINATED BY '\n' SET id=DEFAULT";
 }

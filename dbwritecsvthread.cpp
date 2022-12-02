@@ -4,7 +4,8 @@
 
 void DBWriteCSVThread::run()
 {
-    while(1)
+//    while(1)
+    while(!mustFinish)
     {
         if(!dbConnected)
         {
@@ -16,9 +17,19 @@ void DBWriteCSVThread::run()
 //            std::cout << "into start&&dbconnected," << QString::number(threadID).toStdString() << std::endl;
             startWork = false;
             _doWork();
-            if(!lostCSV) ready = true; //для lost - ready=false всегда, чтобы не участвовал в поиске свободного потока
+            //для lost - ready=false всегда, чтобы не участвовал в поиске свободного потока
+            if(!lostCSV)
+            {
+                ready = true;
+            }
+            else
+            {
+                this->msleep(sleepLostTime);
+                startWork = true;
+                ready = false;
+            }
         }
-        else if(startWork)  //запущен цикл записи, но связи с бд нет
+        else if(startWork)  //запущен цикл записи, но связи с бд нет - в обычном надо создать lost
         {
             if(!lostCSV)    //в lost ничего делать не надо, это он как-раз подчищает за другими
             {
@@ -29,19 +40,24 @@ void DBWriteCSVThread::run()
                 emit workEnd(threadID, errorCodes::THREAD_SAVED_FOR_LOST/*, &outStr*/);
                 ready = true;
             }
-        }
-        else if(mustFinish)
-        {
-//            std::cout << "into mustfinish," << QString::number(threadID).toStdString() << std::endl;
-            _endWork();
+            else
             {
-                QSqlDatabase db = QSqlDatabase::database(dbConn,false);
-                if(db.isOpen()) db.close();
+                this->msleep(sleepLostTime);
+                startWork = true;
+                ready = false;
             }
-            QSqlDatabase::removeDatabase(dbConn);
-            break;
         }
-        else
+//        else if(mustFinish) //сигнал завершения работы
+//        {
+//            _endWork();
+//            {
+//                QSqlDatabase db = QSqlDatabase::database(dbConn,false);
+//                if(db.isOpen()) db.close();
+//            }
+//            QSqlDatabase::removeDatabase(dbConn);
+//            break;
+//        }
+        else //ничего не пришло, делаем паузу... lost - сюда вроде как не доходит!!!, паузу вставил выше
         {
             if(lostCSV)
             {
@@ -53,6 +69,12 @@ void DBWriteCSVThread::run()
             };
         }
     }
+    _endWork();
+    {
+        QSqlDatabase db = QSqlDatabase::database(dbConn,false);
+        if(db.isOpen()) db.close();
+    }
+    QSqlDatabase::removeDatabase(dbConn);
 }
 
 bool DBWriteCSVThread::dbConnect()

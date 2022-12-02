@@ -13,7 +13,7 @@
 // соответственно - поток эти 5 секунд висит на dbconn, только после перейдет на 'start and no dbconn', если была запущена в него задача
 // т.е. количество потоков = это примерное количество запросов в секунду * 5 и +1 для lost
 // реально - делал примерно 3 раза в секунду, хватило 8 потоков ??? (для logClass)
-//
+// update: для testCsvClass - 5-6 раз в секунду, судя по lost файлам - хватило 20 потоков, но вроде как впритык
 //
 // структура ini-файла
 // файл должен находиться на одном уровне с exe (при запуске из-под qt - на уровень выше(windows))
@@ -59,6 +59,7 @@
 // dbTableName              имя таблицы - задается с уровня выше!!!
 //                          значение по умолчанию - test_table
 // csvFilePath              путь к файлам csv, читается из ini-файла
+// csvSqlFilePath           путь к файлам csv для сервера mysql, читается из ini-файла
 // csvThreadArray           массив потоков
 // instanceID               id класса, передается в конструкторе
 // dbConnName               имя соединения с бд, копирует iniSectionName, передается в конструкторе
@@ -114,6 +115,7 @@ template<class T>class DBWriteClass : public dbq
     QString dbDatabaseName;
     QString dbTableName = "test_table";
     QString csvFilePath;
+    QString csvSqlFilePath;
 
     void setTableName();
     void threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr);
@@ -202,6 +204,13 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
         csvFilePath = "/mnt/common/";
         iniFile->setValue("filepath", csvFilePath);
     }
+    csvSqlFilePath = iniFile->value("sqlfilepath","qqq").toString();
+    if(csvSqlFilePath == "qqq")
+    {
+        std::cout << "No sqlfilepath value into ini-file, created default '/mnt/common/'" << std::endl;
+        csvSqlFilePath = "/mnt/common/";
+        iniFile->setValue("sqlfilepath", csvSqlFilePath);
+    }
     iniFile->endGroup();
     delete iniFile;
     std::cout << "ini file was readed or created" << std::endl;
@@ -219,6 +228,7 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
         csvThreadArray[i].dbPassword = dbPassword;
         csvThreadArray[i].dbAddress = dbAddress;
         csvThreadArray[i].filePath = csvFilePath;
+        csvThreadArray[i].sqlFilePath = csvSqlFilePath;
         QObject::connect(&csvThreadArray[i], &T::finished,
                 &csvThreadArray[i], &QObject::deleteLater);
         QObject::connect(&csvThreadArray[i], &T::workEnd,

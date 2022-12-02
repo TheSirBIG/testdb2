@@ -1,7 +1,7 @@
-#include "logclass.h"
+#include "testcsvclass.h"
 #include "errorcodes.h"
 
-void logClass::_threadSlot(int thrID, int errCode, QString *outStrPtr)
+void testCsvClass::_threadSlot(int thrID, int errCode, QString *outStrPtr)
 {
     //функция на всякий случай, вдруг понадобится
     Q_UNUSED(thrID);
@@ -9,11 +9,19 @@ void logClass::_threadSlot(int thrID, int errCode, QString *outStrPtr)
     Q_UNUSED(outStrPtr);
 }
 
-bool logClass::_createTable(QString tname, QSqlError* sqlError)
+bool testCsvClass::_createTable(QString tname, QSqlError* sqlError)
 {
     QSqlQuery query(QSqlDatabase::database(dbConnName));
-    bool retval = query.exec("create table if not exists " + tname + " (id bigint unsigned auto_increment primary key,"
-                             "dt datetime(3), txt char(100)) engine=innodb");
+    QString qtxt = "create table if not exists " + tname + " (id bigint unsigned auto_increment primary key,";
+    for(int i=0; i<100; i++)
+    {
+        qtxt += "vval";
+        qtxt += QString::number(i);
+        qtxt += " double";
+        if(i!=99) qtxt +=",";
+    }
+    qtxt += ") engine=innodb";
+    bool retval = query.exec(qtxt);
     if(!retval)
     {
         *sqlError = query.lastError();
@@ -22,7 +30,7 @@ bool logClass::_createTable(QString tname, QSqlError* sqlError)
     return retval;
 }
 
-int logClass::write(QString txt)
+int testCsvClass::write(double data[100])
 {
     int retval = errorCodes::CLASS_NO_ERROR;
 
@@ -34,8 +42,8 @@ int logClass::write(QString txt)
     else
     {
         csvThreadArray[freeThread].ready = false;
-        csvThreadArray[freeThread].dt = QDateTime::currentDateTime();
-        csvThreadArray[freeThread].txt = txt;
+        for(int i=0; i<100; i++)
+            csvThreadArray[freeThread].data[i] = data[i];
         csvThreadArray[freeThread].startWork = true;
     }
 

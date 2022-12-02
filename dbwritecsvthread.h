@@ -19,10 +19,13 @@
 // threadID         id(номер) потока, на всякий случай, сгодится, если что, для диагностики ошибок каких-нибудь
 // outStr           строка для расширенной информации
 // dbConn           имя соединения с бд
-// filePath         путь, где будут файлы csv
+// filePath         путь, куда писать файлы csv
+// sqlFilePath      путь для сервера mysql, где лежат записанные файлы csv
 // sleepTime        пауза для обычного потока
 // sleepLostTime    пауза для потока lostCSV
 // tableName        имя таблицы для записи
+// fName            имя файла csv, нужно для переименования, есл произошла ошибка записи в бд
+// queryText        текущий запрос для mysql
 //
 // функции:
 // _doWork          перегружаемая основная функция обработки
@@ -56,9 +59,12 @@ public:
     QString dbAddress;
     QString filePath;
     QString tableName;
+    QString sqlFilePath;
     int sleepTime = 200;
-    int sleepLostTime = 2000;
+    int sleepLostTime = 1000;
     bool dbConnected = false;
+    QString fName;
+    QString queryText;
 
     virtual void _doWork() = 0;
     virtual void _endWork() = 0;

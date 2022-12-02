@@ -18,7 +18,6 @@ public:
     };
     QDateTime dt;
     QString txt;
-    QString queryText;
 };
 
 #endif // LOGTHREAD_H

@@ -4,6 +4,7 @@
 //#include <Windows.h>
 
 #include "logclass.h"
+#include "testcsvclass.h"
 
 //  !!!!!!!!!!!!!!!!!! query.exec("set global local_infile=1");     !!!!!!!!!!!!!!!!!!!!!!!!!
 //  !!!!!!!!!!!!!!!!!! на всякий случай вставлять после открытия db !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -23,6 +24,7 @@ const int numOfCollumn = 100;
 //DBWriteClass<DBWriteCSVThread>* qqq1;
 //dbqwe* qwe;
 logClass* lc;
+testCsvClass* tcc;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)//,qqq1(1,4),qqq2(2,4)
@@ -41,6 +43,7 @@ MainWindow::~MainWindow()
 //    delete qqq2;
 //    delete qwe;
     delete lc;
+    delete tcc;
     delete ui;
 }
 
@@ -288,7 +291,8 @@ void MainWindow::on_pushButton_6_released()
 
 //    qqq1 = new DBWriteClass<DBWriteCSVThread>("DBWriteClass",1,4);
 //    qwe = new dbqwe("dbqwe",2);
-    lc = new logClass("lc");
+    lc = new logClass("lc", 100);
+    tcc = new testCsvClass("testcsv", 1);
 
 //    QObject::connect(qqq1, &dbq::sig,
 
@@ -296,6 +300,8 @@ void MainWindow::on_pushButton_6_released()
 //            this, &MainWindow::sigFrom);
 //    QObject::connect(qqq2, &dbq::sig,
     QObject::connect(lc, &dbq::sig,
+            this, &MainWindow::sigFrom);
+    QObject::connect(tcc, &dbq::sig,
             this, &MainWindow::sigFrom);
 
 //    qqq2->createTable("test_table1");
@@ -311,15 +317,31 @@ void MainWindow::on_pushButton_6_released()
         b = lc->dbConnect(&etype,&etext);
         if(!b)
         {
-            std::cout << "error in connecting to db, error text: " << etext.toStdString() << std::endl;
+            std::cout << "error in 'lc' connecting to db, error text: " << etext.toStdString() << std::endl;
         }
-        _sleep(1);
+        this->thread()->sleep(1);
     }
     QSqlError err;
     b = lc->createTable("logtable_00001",&err);
     if(!b)
     {
-        std::cout << "error in main creating table, error text: " << err.text().toStdString() << std::endl;
+        std::cout << "error in main 'lc' creating table, error text: " << err.text().toStdString() << std::endl;
+    }
+
+    b = false;
+    while(!b)
+    {
+        b = tcc->dbConnect(&etype,&etext);
+        if(!b)
+        {
+            std::cout << "error in 'tcc' connecting to db, error text: " << etext.toStdString() << std::endl;
+        }
+        this->thread()->sleep(1);
+    }
+    b = tcc->createTable("testcsv_01",&err);
+    if(!b)
+    {
+        std::cout << "error in main 'tcc' creating table, error text: " << err.text().toStdString() << std::endl;
     }
 }
 
@@ -328,4 +350,14 @@ void MainWindow::on_pushButton_9_released()
     static int q = 0;
 
     lc->write("test-" + QString::number(q++));
+}
+
+void MainWindow::on_pushButton_10_released()
+{
+    static double q = 0.1;
+    double data[100];
+
+    for(int i=0; i<100; i++) data[i] = q;
+    tcc->write(data);
+    q += 0.1;
 }
