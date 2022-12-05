@@ -343,6 +343,9 @@ void MainWindow::on_pushButton_6_released()
     {
         std::cout << "error in main 'tcc' creating table, error text: " << err.text().toStdString() << std::endl;
     }
+
+    lc->startTimer(2000);
+    tcc->startTimer(3000);
 }
 
 void MainWindow::on_pushButton_9_released()

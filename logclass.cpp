@@ -22,6 +22,11 @@ bool logClass::_createTable(QString tname, QSqlError* sqlError)
     return retval;
 }
 
+void logClass::_onTimer()
+{
+    std::cout << "timer into logclass" << std::endl;
+}
+
 int logClass::write(QString txt)
 {
     int retval = errorCodes::CLASS_NO_ERROR;

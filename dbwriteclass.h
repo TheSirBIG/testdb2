@@ -73,6 +73,8 @@
 // threadSlot               "слот" для связи с сигналом от потока.
 //                          используется virtual _threadSlot для дочерних классов
 //                          по факту - просто перебрасывает данные +instanceID основной программе
+// startTimer               запуск таймера, если без параметров - то на 2 часа
+// _onTimer                 virtual, соединен с сигналом таймера timeout
 // getFreeThread            индекс первого свободного потока, или -1
 // getDbTabelName           текущая таблица
 // createTable              создать таблицу, передать имя в потоки
@@ -97,8 +99,29 @@
 class dbq : public QObject
 {
     Q_OBJECT
+    static const int twohourconst = 7200000;
+
+protected:
+    QTimer periodTimer;
+
 signals:
     void sig(int instanceID, int thrID, int errCode, QString* outStrPtr = nullptr);
+
+public:
+    dbq()
+    {
+        periodTimer.setTimerType(Qt::VeryCoarseTimer);
+    };
+    virtual ~dbq()
+    {
+        periodTimer.stop();
+        std::cout << "timer stopped" << std::endl;
+    };
+    void startTimer(int msec = twohourconst)
+    {
+        std::cout << "timer started with " << QString::number(msec).toStdString() << " ms" << std::endl;
+        periodTimer.start(msec);
+    };
 };
 
 // варианты объявления классов на базе DBWriteClass:
@@ -131,6 +154,7 @@ protected:
     virtual bool _createTable(QString tname, QSqlError* sqlError) = 0;
     virtual void _threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr) = 0;
     int getFreeThread();
+    virtual void _onTimer() = 0;
 
 public:
     DBWriteClass(QString iniSectionName, int instID);
@@ -197,6 +221,12 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
         dbNumOfThreads = 10;
         iniFile->setValue("threads", dbNumOfThreads);
     }
+    if(dbNumOfThreads <= 1)
+    {
+        std::cout << "Must be minimum 2 threads, set to 2 (1 normal, 1 for 'lost')" << std::endl;
+        dbNumOfThreads = 2;
+        iniFile->setValue("threads", dbNumOfThreads);
+    }
     csvFilePath = iniFile->value("filepath","qqq").toString();
     if(csvFilePath == "qqq")
     {
@@ -240,6 +270,9 @@ DBWriteClass<T>::DBWriteClass(QString iniSectionName, int instID)
     //last thread - thread for 'lost'
     csvThreadArray[dbNumOfThreads-1].ready = false;
     csvThreadArray[dbNumOfThreads-1].lostCSV = true;
+
+    QObject::connect(&periodTimer, &QTimer::timeout,
+            this, &DBWriteClass::_onTimer);
 }
 
 template<class T>
@@ -429,6 +462,6 @@ void DBWriteClass<T>::threadSlot(int thrID, int errCode, QString* outStrPtr)
 {
     _threadSlot(thrID, errCode, outStrPtr);
     emit sig(instanceID,thrID,errCode,outStrPtr);
-};
+}
 
 #endif // DBWRITECLASS_H

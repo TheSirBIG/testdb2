@@ -30,6 +30,11 @@ bool testCsvClass::_createTable(QString tname, QSqlError* sqlError)
     return retval;
 }
 
+void testCsvClass::_onTimer()
+{
+    std::cout << "timer in testcsvcalss" << std::endl;
+}
+
 int testCsvClass::write(double data[100])
 {
     int retval = errorCodes::CLASS_NO_ERROR;

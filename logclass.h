@@ -8,6 +8,8 @@ class logClass : public DBWriteClass<logThread>
 {
     void _threadSlot(int thrID, int errCode, QString* outStrPtr = nullptr) override;
     bool _createTable(QString tname, QSqlError* sqlError) override;
+    void _onTimer() override;
+
 public:
     logClass(QString iniSectionName, int instID):DBWriteClass(iniSectionName, instID)
     {
